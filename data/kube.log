@@ -1,0 +1,15 @@
+2023-10-10T14:32:10.123456789Z stdout F {"log":"Starting Kubernetes node...\n","stream":"stdout","time":"2023-10-10T14:32:10.123456789Z"}
+2023-10-10T14:32:11.123456789Z stderr F {"log":"E1010 14:32:11.123456789 1 kubelet.go:2268] node 'node-1' not found\n","stream":"stderr","time":"2023-10-10T14:32:11.123456789Z"}
+2023-10-10T14:32:12.123456789Z stdout F {"log":"Node 'node-1' registered successfully\n","stream":"stdout","time":"2023-10-10T14:32:12.123456789Z"}
+2023-10-10T14:32:13.123456789Z stdout F {"log":"Starting pod 'pod-1'...\n","stream":"stdout","time":"2023-10-10T14:32:13.123456789Z"}
+2023-10-10T14:32:14.123456789Z stdout F {"log":"Pod 'pod-1' started successfully\n","stream":"stdout","time":"2023-10-10T14:32:14.123456789Z"}
+2023-10-10T14:32:15.123456789Z stderr F {"log":"E1010 14:32:15.123456789 1 kubelet.go:2268] failed to start container 'container-1' in pod 'pod-1': ImagePullBackOff\n","stream":"stderr","time":"2023-10-10T14:32:15.123456789Z"}
+2023-10-10T14:32:16.123456789Z stdout F {"log":"Pulling image 'nginx:latest' for container 'container-1'...\n","stream":"stdout","time":"2023-10-10T14:32:16.123456789Z"}
+2023-10-10T14:32:17.123456789Z stdout F {"log":"Successfully pulled image 'nginx:latest' for container 'container-1'\n","stream":"stdout","time":"2023-10-10T14:32:17.123456789Z"}
+2023-10-10T14:32:18.123456789Z stdout F {"log":"Container 'container-1' started successfully\n","stream":"stdout","time":"2023-10-10T14:32:18.123456789Z"}
+2023-10-10T14:32:19.123456789Z stderr F {"log":"E1010 14:32:19.123456789 1 kubelet.go:2268] liveness probe failed for container 'container-1' in pod 'pod-1'\n","stream":"stderr","time":"2023-10-10T14:32:19.123456789Z"}
+2023-10-10T14:32:20.123456789Z stdout F {"log":"Restarting container 'container-1' in pod 'pod-1'...\n","stream":"stdout","time":"2023-10-10T14:32:20.123456789Z"}
+2023-10-10T14:32:21.123456789Z stdout F {"log":"Container 'container-1' restarted successfully\n","stream":"stdout","time":"2023-10-10T14:32:21.123456789Z"}
+2023-10-10T14:32:22.123456789Z stdout F {"log":"Pod 'pod-1' is running\n","stream":"stdout","time":"2023-10-10T14:32:22.123456789Z"}
+2023-10-10T14:32:23.123456789Z stderr F {"log":"E1010 14:32:23.123456789 1 kubelet.go:2268] readiness probe failed for container 'container-1' in pod 'pod-1'\n","stream":"stderr","time":"2023-10-10T14:32:23.123456789Z"}
+2023-10-10T14:32:24.123456789Z stdout F {"log":"Pod 'pod-1' is ready\n","stream":"stdout","time":"2023-10-10T14:32:24.123456789Z"}

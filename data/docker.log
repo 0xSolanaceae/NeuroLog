@@ -1,0 +1,10 @@
+2023-10-10T14:32:10.123456789Z container_id=abc123456789 stdout F {"log":"Starting Docker container...\n","stream":"stdout","time":"2023-10-10T14:32:10.123456789Z"}
+2023-10-10T14:32:11.123456789Z container_id=abc123456789 stderr F {"log":"E1010 14:32:11.123456789 1 docker.go:2268] failed to start container 'container-1': ImagePullBackOff\n","stream":"stderr","time":"2023-10-10T14:32:11.123456789Z"}
+2023-10-10T14:32:12.123456789Z container_id=abc123456789 stdout F {"log":"Pulling image 'nginx:latest'...\n","stream":"stdout","time":"2023-10-10T14:32:12.123456789Z"}
+2023-10-10T14:32:13.123456789Z container_id=abc123456789 stdout F {"log":"Successfully pulled image 'nginx:latest'\n","stream":"stdout","time":"2023-10-10T14:32:13.123456789Z"}
+2023-10-10T14:32:14.123456789Z container_id=abc123456789 stdout F {"log":"Starting container 'container-1'...\n","stream":"stdout","time":"2023-10-10T14:32:14.123456789Z"}
+2023-10-10T14:32:15.123456789Z container_id=abc123456789 stdout F {"log":"Container 'container-1' started successfully\n","stream":"stdout","time":"2023-10-10T14:32:15.123456789Z"}
+2023-10-10T14:32:16.123456789Z container_id=abc123456789 stderr F {"log":"E1010 14:32:16.123456789 1 docker.go:2268] liveness probe failed for container 'container-1'\n","stream":"stderr","time":"2023-10-10T14:32:16.123456789Z"}
+2023-10-10T14:32:17.123456789Z container_id=abc123456789 stdout F {"log":"Restarting container 'container-1'...\n","stream":"stdout","time":"2023-10-10T14:32:17.123456789Z"}
+2023-10-10T14:32:18.123456789Z container_id=abc123456789 stdout F {"log":"Container 'container-1' restarted successfully\n","stream":"stdout","time":"2023-10-10T14:32:18.123456789Z"}
+2023-10-10T14:32:19.123456789Z container_id=abc123456789 stdout F {"log":"Container 'container-1' is running\n","stream":"stdout","time":"2023-10-10T14:32:19.123456789Z"}

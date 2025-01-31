@@ -1,0 +1,20 @@
+Feb 01 08:15:23 server1 INFO: System startup complete
+Feb 01 08:16:45 server2 WARNING: High memory usage detected [Memory: 85%]
+Feb 01 08:17:30 server3 ERROR: Failed login attempt from 192.168.1.10
+Feb 01 08:18:55 server1 INFO: Scheduled backup completed successfully
+Feb 01 08:19:40 server4 CRITICAL: Disk failure detected on /dev/sda1
+Feb 01 08:20:25 server2 WARNING: CPU temperature high [Temp: 75°C]
+Feb 01 08:21:50 server5 ERROR: Network connectivity lost to 10.0.0.5
+Feb 01 08:22:35 server3 INFO: User login successful for user 'admin'
+Feb 01 08:23:10 server1 INFO: System health check passed
+Feb 01 08:24:15 server4 CRITICAL: Unauthorized access detected from 172.16.0.2
+Feb 01 08:25:00 server6 INFO: New device connected [Device ID: 12345]
+Feb 01 08:26:20 server7 WARNING: Low disk space on /var [Free: 5%]
+Feb 01 08:27:45 server8 ERROR: Application crash detected [App: nginx]
+Feb 01 08:28:30 server9 INFO: Configuration file updated [File: /etc/nginx/nginx.conf]
+Feb 01 08:29:55 server10 CRITICAL: Power supply failure detected
+Feb 01 08:30:40 server11 WARNING: High network latency [Latency: 200ms]
+Feb 01 08:31:25 server12 ERROR: Database connection lost [DB: postgres]
+Feb 01 08:32:10 server13 INFO: Backup completed [Duration: 2 hours]
+Feb 01 08:33:35 server14 CRITICAL: Security breach detected [IP: 203.0.113.5]
+Feb 01 08:34:20 server15 WARNING: High memory usage detected [Memory: 90%]
