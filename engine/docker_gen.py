@@ -30,12 +30,6 @@ suspicious_messages = [
     "Unauthorized access detected",
     "Port scan detected from 10.0.0.1",
     "Unexpected container termination",
-    "Malicious payload detected",
-    "Outbound connection to known malicious IP",
-    "Container running in privileged mode",
-    "Suspicious file modification detected",
-    "Cryptocurrency mining activity detected",
-    "Container escape attempt detected",
 ]
 
 def random_timestamp():
@@ -44,14 +38,15 @@ def random_timestamp():
     return (now - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def generate_log_line():
-    if random.random() < 0.02:  # 2% chance of generating a suspicious log
+    timestamp = datetime.timezone.utc().strftime("%Y-%m-%dT%H:%M:%SZ")
+    if random.random() < 0.02: # 2% chance of generating a suspicious log
         message = random.choice(suspicious_messages)
+        level = "WARNING"
     else:
         message = random.choice(normal_messages)
-    
-    log_level = random.choice(["INFO", "WARNING", "ERROR"]) if "Failed" in message or "Unauthorized" in message else "INFO"
-    container_id = f"c{random.randint(1000, 9999)}"
-    return f"{random_timestamp()} {log_level} [{container_id}] {message}"
+        level = "INFO"
+    code = f"c{random.randint(1000, 9999)}"
+    return f"{timestamp} {level} [{code}] {message}"
 
 def main(entries):
     logs = [generate_log_line() for _ in range(entries)]

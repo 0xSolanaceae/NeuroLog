@@ -4,7 +4,7 @@ HOSTNAME = "myhostname"
 
 tags_messages = {
     "kernel": [
-        lambda: f"usb 1-1: new high-speed USB device number {random.randint(1,20)} using xhci_hcd",
+        lambda: f"usb 1-1: New high-speed USB device number {random.randint(1,20)} using xhci_hcd",
         lambda: "usb 1-1: New USB device found, idVendor=1234, idProduct=5678, bcdDevice=1.00",
         lambda: f"usb 1-1: New USB device strings: Mfr={random.randint(1,5)}, Product={random.randint(1,5)}, SerialNumber={random.randint(100000,999999)}",
         lambda: "usb 1-1: Product: Example USB Device",
@@ -33,7 +33,7 @@ tags_messages = {
 def random_syslog_timestamp():
     month = random.choice(["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
-    day = random.randint(1, 28)  # Simplify to 28 days per month
+    day = random.randint(1, 31)
     hour = random.randint(0, 23)
     minute = random.randint(0, 59)
     second = random.randint(0, 59)
@@ -47,9 +47,7 @@ def generate_syslog_line():
 
 def main(entries):
     lines = [generate_syslog_line() for _ in range(entries)]
-    with open("data/syslog.log", "w") as file:
-        file.write("\n".join(lines) + "\n")
-    print(f"Generated {entries} lines of syslog entries in 'data/syslog.log'")
+    return "\n".join(lines)
 
 if __name__ == "__main__":
     main()

@@ -37,22 +37,28 @@ suspicious_messages = [
     "Pod escape attempt detected",
 ]
 
+namespaces = ["development", "production", "default", "kube-system"]
+
 def random_timestamp():
     now = datetime.datetime.now()
-    delta = datetime.timedelta(days=random.randint(0, 7), hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
+    delta = datetime.timedelta(
+        days=random.randint(0, 7),
+        hours=random.randint(0, 23),
+        minutes=random.randint(0, 59),
+        seconds=random.randint(0, 59)
+    )
     return (now - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def generate_log_line():
-    if random.random() < 0.02:  # 2% chance of generating a suspicious log
+    if random.random() < 0.02: # 2% chance of generating a suspicious log
         message = random.choice(suspicious_messages)
     else:
         message = random.choice(normal_messages)
-    
-    log_level = random.choice(["INFO", "WARNING", "ERROR"]) if "Failed" in message or "Unauthorized" in message else "INFO"
-    pod_name = f"pod-{random.randint(1000, 9999)}"
-    namespace = random.choice(["default", "kube-system", "production", "development"])
-    container_name = f"container-{random.randint(1000, 9999)}"
-    return f"{random_timestamp()} {log_level} {namespace}/{pod_name}/{container_name} {message}"
+
+    ns = random.choice(namespaces)
+    pod_id = f"pod-{random.randint(1000, 9999)}"
+    container_id = f"container-{random.randint(1000, 9999)}"
+    return f"{random_timestamp()} INFO {ns}/{pod_id}/{container_id} {message}"
 
 def main(entries):
     logs = [generate_log_line() for _ in range(entries)]
