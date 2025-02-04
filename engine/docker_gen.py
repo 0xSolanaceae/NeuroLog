@@ -38,7 +38,7 @@ def random_timestamp():
     return (now - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def generate_log_line():
-    timestamp = datetime.timezone.utc().strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     if random.random() < 0.02: # 2% chance of generating a suspicious log
         message = random.choice(suspicious_messages)
         level = "WARNING"

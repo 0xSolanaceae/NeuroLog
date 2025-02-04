@@ -47,6 +47,7 @@ def generate_syslog_line():
 
 def main(entries):
     lines = [generate_syslog_line() for _ in range(entries)]
+    print(f"Generated {entries} lines of syslog logs in 'syslog.log'")
     return "\n".join(lines)
 
 if __name__ == "__main__":
