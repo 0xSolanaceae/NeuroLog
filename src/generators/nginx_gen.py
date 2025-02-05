@@ -40,10 +40,10 @@ def generate_log_line():
 
 def main(entries):
     logs = [generate_log_line() for _ in range(entries)]
-    with open("data/nginx.log", "w") as file:
+    with open("logs/nginx.log", "w") as file:
         for log in logs:
             file.write(log + "\n")
-    print(f"Generated {entries} lines of Nginx logs in 'data/nginx.log'")
+    print(f"Generated {entries} lines of Nginx logs in 'logs/nginx.log'")
 
 if __name__ == "__main__":
     main(1000)

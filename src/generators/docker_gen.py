@@ -50,10 +50,10 @@ def generate_log_line():
 
 def main(entries):
     logs = [generate_log_line() for _ in range(entries)]
-    with open("data/docker.log", "w") as file:
+    with open("logs/docker.log", "w") as file:
         for log in logs:
             file.write(log + "\n")
-    print(f"Generated {entries} lines of Docker logs in 'docker.log'")
+    print(f"Generated {entries} lines of Docker logs in 'logs/docker.log'")
 
 if __name__ == "__main__":
     main()

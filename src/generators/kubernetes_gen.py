@@ -62,10 +62,10 @@ def generate_log_line():
 
 def main(entries):
     logs = [generate_log_line() for _ in range(entries)]
-    with open("data/kube.log", "w") as file:
+    with open("logs/kube.log", "w") as file:
         for log in logs:
             file.write(log + "\n")
-    print(f"Generated {entries} lines of Kubernetes logs in 'kube.log'")
+    print(f"Generated {entries} lines of Kubernetes logs in 'logs/kube.log'")
 
 if __name__ == "__main__":
     main()
