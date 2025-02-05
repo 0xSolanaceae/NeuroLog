@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "neurolog"
 version = "0.1.0"
-description = "Add your description here"
+description = "ML-Powered Log Analysis"
 authors = ["0xSolanaceae"]
 readme = "README.md"
 license = "GPLv3"

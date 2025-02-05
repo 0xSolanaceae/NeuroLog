@@ -1,22 +1,11 @@
-"""
-Advanced Log Analysis System with ML Integration
-Key Features:
-- Multi-format log parsing with fallback
-- Composite anomaly detection model
-- Intelligent feature engineering
-- Confidence-based log type recognition
-- CLI-driven operational analytics
-"""
-
 import re
 import logging
 import argparse
 import pandas as pd
 import numpy as np
-from datetime import datetime
 from dateutil.parser import parse as date_parse
 from sklearn.ensemble import IsolationForest
-from sklearn.preprocessing import StandardScaler, FunctionTransformer
+from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.multiclass import OneVsRestClassifier
@@ -40,7 +29,6 @@ class LogAnalyzer:
     def _init_log_type_model(self):
         """Initialize multi-format log classifier with optimized training"""
         training_data = {
-            # Expanded training examples
             'docker': [
                 '{"log":"Container started\\n","stream":"stdout","time":"...Z"}',
                 '{"log":"Health check failed\\n","stream":"stderr","time":"...Z"}'
@@ -49,7 +37,6 @@ class LogAnalyzer:
                 'k8s.io/client-go/transport RoundTrip ...',
                 'kubelet: Pod "pod-123" container status ...'
             ],
-            # Other log types expanded similarly...
         }
         
         texts, labels = [], []
@@ -67,7 +54,6 @@ class LogAnalyzer:
         return [
             (r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\S+) (\S+) \{"log":"(.*?)\\n".*\}', 
              ['timestamp', 'host', 'level', 'message']),
-            # Additional optimized patterns...
         ]
 
     def detect_log_types(self, log_file):
@@ -106,7 +92,6 @@ class LogAnalyzer:
                     parsed = False
                     line = line.strip()
                     
-                    # Try configured patterns first
                     for pattern, fields in self._patterns:
                         match = re.match(pattern, line)
                         if match:
@@ -116,7 +101,6 @@ class LogAnalyzer:
                             parsed = True
                             break
                     
-                    # Fallback to ML-based format detection
                     if not parsed:
                         proba = self.log_type_model.predict_proba([line])[0]
                         detected = self.LOG_TYPES[np.argmax(proba)]
@@ -220,7 +204,6 @@ def main():
     try:
         results = analyzer.analyze(args.log_file)
         
-        # Format output
         print("\n=== ANALYSIS RESULTS ===")
         print("Log Type Confidences:")
         for t, c in results['type_confidences'].items():
