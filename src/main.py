@@ -1,33 +1,38 @@
+# written by 0xSolanaceae
 import re
 import logging
 import argparse
+import os
 import pandas as pd
 import numpy as np
 from dateutil.parser import parse as date_parse
 from sklearn.ensemble import IsolationForest
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import make_pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
+from typing import Dict, List, Tuple
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class LogAnalyzer:
-    """Machine Learning-powered log analysis engine"""
+    """Advanced Machine Learning-powered log analysis engine"""
     
     LOG_TYPES = ['docker', 'kubernetes', 'syslog', 'apache', 'nginx', 'windows']
-    MAX_SAMPLE_LINES = 500  # Reduced for performance
-    
+    MAX_SAMPLE_LINES = 1000
+    CHUNK_SIZE = 10000  # For memory-efficient processing
+
     def __init__(self):
+        logging.info("Initializing LogAnalyzer")
         self.log_type_model = self._init_log_type_model()
         self.analysis_pipeline = self._build_analysis_pipeline()
-        self._patterns = self._load_parsing_patterns()
+        self._compiled_patterns = self._load_parsing_patterns()
 
-    def _init_log_type_model(self):
-        """Initialize multi-format log classifier with optimized training"""
+    def _init_log_type_model(self) -> OneVsRestClassifier:
+        logging.info("Initializing log type model")
         training_data = {
             'docker': [
                 '{"log":"Container started\\n","stream":"stdout","time":"...Z"}',
@@ -37,6 +42,22 @@ class LogAnalyzer:
                 'k8s.io/client-go/transport RoundTrip ...',
                 'kubelet: Pod "pod-123" container status ...'
             ],
+            'syslog': [
+                'May  5 12:34:56 hostname cron[123]: ERROR: Failed to start job',
+                'Jun 10 01:23:45 hostname sudo: pam_unix(sudo:session): session closed'
+            ],
+            'apache': [
+                '127.0.0.1 - - [05/May/2023:12:34:56 +0000] "GET / HTTP/1.1" 200 1234',
+                '192.168.1.1 - - [05/May/2023:12:35:01 +0000] "POST /login HTTP/1.1" 401 567'
+            ],
+            'nginx': [
+                '192.168.1.1 - - [05/May/2023:12:35:01 +0000] "GET /images/logo.png HTTP/1.1" 304 0',
+                '10.0.0.2 - - [05/May/2023:12:35:02 +0000] "GET /api/data HTTP/1.1" 500 123'
+            ],
+            'windows': [
+                '2023-05-05T12:34:56.123Z INFO Service Control Manager: Service "Windows Update" started.',
+                '2023-05-05T12:35:00.456Z ERROR System: A device attached to the system is not functioning.'
+            ]
         }
         
         texts, labels = [], []
@@ -44,100 +65,155 @@ class LogAnalyzer:
             texts.extend(examples)
             labels.extend([log_type] * len(examples))
         
+        logging.info("Training log type model with %d examples", len(texts))
         return make_pipeline(
-            TfidfVectorizer(ngram_range=(1, 2), max_features=1000),
-            OneVsRestClassifier(LogisticRegression(max_iter=1000, n_jobs=-1))
+            TfidfVectorizer(ngram_range=(1, 2), max_features=2000),
+            OneVsRestClassifier(LogisticRegression(max_iter=2000, n_jobs=-1, class_weight='balanced'))
         ).fit(texts, labels)
 
-    def _load_parsing_patterns(self):
-        """Configurable parsing patterns with priority ordering"""
-        return [
+    def _load_parsing_patterns(self) -> List[Tuple[re.Pattern, List[str]]]:
+        logging.info("Loading parsing patterns")
+        patterns = [
+            # Docker JSON format
             (r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\S+) (\S+) \{"log":"(.*?)\\n".*\}', 
              ['timestamp', 'host', 'level', 'message']),
-        ]
-
-    def detect_log_types(self, log_file):
-        """Enhanced format detection with confidence sampling"""
-        try:
-            with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
-                sample = [line.strip() for line, _ in zip(f, range(self.MAX_SAMPLE_LINES))]
             
-            if not sample:
-                logging.warning("Empty log file detected")
-                return {}
-
-            probas = self.log_type_model.predict_proba(sample)
-            return pd.DataFrame(probas, columns=self.LOG_TYPES).mean().to_dict()
+            # Syslog format
+            (r'^(\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) (\S+) (\S+)\[(\d+)\]: (.*)$', 
+             ['timestamp', 'host', 'app', 'pid', 'message']),
+            
+            # Apache Common Log Format
+            (r'^(\S+) (\S+) (\S+) \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+)$', 
+             ['ip', 'client_id', 'user_id', 'timestamp', 'method', 'url', 'protocol', 'status', 'size']),
+            
+            # Nginx access log
+            (r'^(\S+) - (\S+) \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+) "(.*?)" "(.*?)"$',
+             ['ip', 'remote_user', 'timestamp', 'method', 'url', 'protocol', 'status', 'size', 'referer', 'user_agent']),
+            
+            # Windows Event Log
+            (r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\S+) (\S+): (\S+): (.*)$', 
+             ['timestamp', 'host', 'source', 'event_id', 'message'])
+        ]
         
-        except Exception as e:
-            logging.error(f"Log type detection failed: {str(e)}")
-            return {}
+        return [(re.compile(pattern), fields) for pattern, fields in patterns]
 
-    def _safe_parse_timestamp(self, ts_str):
-        """Robust timestamp parsing with multiple format support"""
+    def _safe_parse_timestamp(self, ts_str: str) -> pd.Timestamp:
+        logging.info("Parsing timestamp: %s", ts_str)
         try:
             return date_parse(ts_str, ignoretz=True)
         except (ValueError, OverflowError, AttributeError):
+            # Try common format variations
+            for fmt in ['%Y-%m-%dT%H:%M:%S.%fZ', '%d/%b/%Y:%H:%M:%S %z', '%b %d %H:%M:%S']:
+                try:
+                    return pd.to_datetime(ts_str, format=fmt)
+                except ValueError:
+                    continue
             return pd.NaT
 
-    def parse_logs(self, log_file):
-        """Optimized parsing with configurable patterns"""
+    def parse_logs(self, log_file: str) -> pd.DataFrame:
+        logging.info("Starting log parsing for file: %s", log_file)
         entries = []
         format_counts = {p:0 for p in self.LOG_TYPES}
         format_counts['unknown'] = 0
         
         try:
             with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    parsed = False
-                    line = line.strip()
-                    
-                    for pattern, fields in self._patterns:
-                        match = re.match(pattern, line)
-                        if match:
-                            entry = dict(zip(fields, match.groups()))
-                            entry['timestamp'] = self._safe_parse_timestamp(entry.get('timestamp', ''))
-                            entries.append(entry)
-                            parsed = True
-                            break
-                    
-                    if not parsed:
-                        proba = self.log_type_model.predict_proba([line])[0]
-                        detected = self.LOG_TYPES[np.argmax(proba)]
-                        format_counts[detected] += 1
-                        entries.append(self._parse_fallback(line, detected))
+                for chunk in pd.read_csv(f, chunksize=self.CHUNK_SIZE, header=None, names=['raw']):
+                    for line in chunk['raw']:
+                        line = line.strip()
+                        parsed = False
+                        
+                        # Try precompiled patterns first
+                        for pattern, fields in self._compiled_patterns:
+                            match = pattern.match(line)
+                            if match:
+                                logging.info("Matched pattern for line: %s", line)
+                                entry = dict(zip(fields, match.groups()))
+                                entry['timestamp'] = self._safe_parse_timestamp(entry.get('timestamp', ''))
+                                entries.append(entry)
+                                parsed = True
+                                break
+                        
+                        # Fallback to ML-based parsing
+                        if not parsed:
+                            proba = self.log_type_model.predict_proba([line])[0]
+                            detected = self.LOG_TYPES[np.argmax(proba)]
+                            format_counts[detected] += 1
+                            logging.info("Fallback parsing for line: %s as type: %s", line, detected)
+                            entries.append(self._parse_fallback(line, detected))
         
         except UnicodeDecodeError as e:
-            logging.error(f"Encoding error in log file: {str(e)}")
+            logging.error("Encoding error: %s", str(e))
+            raise
+        except Exception as e:
+            logging.error("Parsing failed: %s", str(e))
             raise
         
-        logging.info(f"Format distribution: {format_counts}")
+        logging.info("Parsed %d log entries", len(entries))
+        logging.info("Format distribution: %s", format_counts)
         return pd.DataFrame(entries).fillna({
             'host': 'unknown', 
             'level': 'UNKNOWN',
             'message': ''
-        })
+        }).pipe(self._postprocess_df)
 
-    def _parse_fallback(self, line, detected_type):
-        """ML-assisted fallback parsing"""
+    def _parse_fallback(self, line: str, detected_type: str) -> Dict:
+        logging.info("Using fallback parse for type: %s and line: %s", detected_type, line)
+        type_patterns = {
+            'apache': (r'^(\S+) (\S+) (\S+) \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+)$', 
+                      ['ip', 'client_id', 'user_id', 'timestamp', 'method', 'url', 'protocol', 'status', 'size']),
+            'syslog': (r'^(\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) (\S+) (\S+)\[(\d+)\]: (.*)$', 
+                      ['timestamp', 'host', 'app', 'pid', 'message'])
+        }
+        
+        if detected_type in type_patterns:
+            pattern, fields = type_patterns[detected_type]
+            match = re.match(pattern, line)
+            if match:
+                entry = dict(zip(fields, match.groups()))
+                entry['timestamp'] = self._safe_parse_timestamp(entry.get('timestamp', ''))
+                return entry
+        
+        logging.info("Default fallback parsing for line: %s", line)
+        # Default fallback for unknown formats
         return {
-            'timestamp': self._safe_parse_timestamp(line[:30]),  # Heuristic
+            'timestamp': self._safe_parse_timestamp(line[:30]),
             'host': detected_type,
             'level': 'UNKNOWN',
             'message': line
         }
 
-    def _build_analysis_pipeline(self):
-        """Composite feature engineering pipeline"""
-        numeric_features = ['msg_length', 'error_count', 'warning_count']
+    def _postprocess_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        logging.info("Post-processing DataFrame with %d records", len(df))
+        # Extract common features from message content
+        df['http_status'] = df['message'].str.extract(r'\s(\d{3})\s').astype(float)
+        df['http_method'] = df['message'].str.extract(r'(GET|POST|PUT|DELETE|HEAD|OPTIONS|PATCH)\s', flags=re.IGNORECASE)
+        df['msg_length'] = df['message'].str.len()
+        df['error_count'] = df['message'].str.count(r'(?i)error|exception|fail')
+        df['warning_count'] = df['message'].str.count(r'(?i)warn|alert|critical')
         
-        return make_pipeline(
+        # Fill missing HTTP status values with 0 (or another default)
+        df['http_status'] = df['http_status'].fillna(0)
+        
+        logging.info("Completed post-processing")
+        return df
+
+    def _build_analysis_pipeline(self):
+        logging.info("Building analysis pipeline")
+        numeric_features = ['msg_length', 'error_count', 'warning_count', 'http_status']
+        categorical_features = ['http_method', 'level']
+
+        pipeline = make_pipeline(
             ColumnTransformer([
                 ('numeric', make_pipeline(
                     SimpleImputer(strategy='median'),
                     StandardScaler()
                 ), numeric_features),
-                ('text', TfidfVectorizer(max_features=500), 'message')
+                ('categorical', make_pipeline(
+                    SimpleImputer(strategy='constant', fill_value='missing'),
+                    OneHotEncoder(handle_unknown='ignore')
+                ), categorical_features),
+                ('text', TfidfVectorizer(max_features=1000), 'message')
             ]),
             IsolationForest(
                 contamination=0.05, 
@@ -146,28 +222,28 @@ class LogAnalyzer:
                 verbose=0
             )
         )
+        logging.info("Analysis pipeline built")
+        return pipeline
 
-    def analyze(self, log_file):
-        """End-to-end analysis workflow"""
+    def analyze(self, log_file: str) -> Dict:
+        logging.info("Starting full analysis on file: %s", log_file)
         try:
             # Stage 1: Log type detection
             type_confidences = self.detect_log_types(log_file)
-            logging.info(f"Log type confidences: {type_confidences}")
+            logging.info("Log type confidences: %s", type_confidences)
             
-            # Stage 2: Intelligent parsing
+            # Stage 2: Memory-efficient parsing
             logs = self.parse_logs(log_file)
             if logs.empty:
                 raise ValueError("No parsable log entries found")
+            logging.info("Log parsing completed. Records: %d", len(logs))
             
-            # Stage 3: Feature engineering
-            logs['msg_length'] = logs['message'].str.len()
-            logs['error_count'] = logs['message'].str.count(r'(?i)error|exception|fail')
-            logs['warning_count'] = logs['message'].str.count(r'(?i)warn|alert|critical')
-            
-            # Stage 4: Anomaly detection
+            # Stage 3: Anomaly detection
+            logging.info("Fitting analysis pipeline for anomaly detection")
             self.analysis_pipeline.fit(logs)
             logs['anomaly_score'] = self.analysis_pipeline.decision_function(logs)
             logs['anomaly'] = self.analysis_pipeline.predict(logs)
+            logging.info("Anomaly detection complete. Found anomalies: %d", len(logs[logs['anomaly'] == -1]))
             
             return {
                 'type_confidences': type_confidences,
@@ -176,54 +252,138 @@ class LogAnalyzer:
             }
         
         except Exception as e:
-            logging.error(f"Analysis pipeline failed: {str(e)}")
+            logging.error("Analysis failed: %s", str(e))
             raise
 
-    def _compute_statistics(self, logs):
-        """Generate operational insights"""
-        return {
+    def _compute_statistics(self, logs: pd.DataFrame) -> Dict:
+        logging.info("Computing statistics from logs")
+        stats = {
             'total_entries': len(logs),
             'error_rate': logs['error_count'].sum() / len(logs),
             'common_hosts': logs['host'].value_counts().head(3).to_dict(),
-            'anomaly_distribution': logs['anomaly'].value_counts().to_dict()
+            'anomaly_distribution': logs['anomaly'].value_counts().to_dict(),
+            'http_status_distribution': logs['http_status'].value_counts().to_dict()
         }
+        
+        # Temporal analysis
+        if not logs['timestamp'].isna().all():
+            time_bins = pd.cut(logs['timestamp'], bins=10)
+            stats['temporal_distribution'] = time_bins.value_counts().sort_index().to_dict()
+        logging.info("Statistics computed: %s", stats)
+        return stats
+
+    def detect_log_types(self, log_file: str) -> Dict:
+        logging.info("Detecting log types for file: %s", log_file)
+        try:
+            with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                sample = []
+                for line, _ in zip(f, range(self.MAX_SAMPLE_LINES)):
+                    if line.strip():
+                        sample.append(line.strip())
+            if not sample:
+                logging.warning("Empty log file detected")
+                return {}
+
+            probas = self.log_type_model.predict_proba(sample)
+            results = pd.DataFrame(probas, columns=self.LOG_TYPES).mean().to_dict()
+            logging.info("Log types detected: %s", results)
+            return results
+        
+        except Exception as e:
+            logging.error("Detection failed: %s", str(e))
+            return {}
 
 def main():
-    """CLI Interface with enhanced reporting"""
+    logging.info("Starting CLI")
     parser = argparse.ArgumentParser(
-        description="ML-Powered Log Analysis System",
+        description="Enterprise Log Analysis System",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("log_file", help="Path to log file for analysis")
-    parser.add_argument("--output", "-o", help="Output file for results (CSV)")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed output")
+    subparsers = parser.add_subparsers(dest='command', required=True)
+
+    # Analyze command
+    analyze_parser = subparsers.add_parser('analyze', help='Full analysis pipeline')
+    analyze_parser.add_argument("log_file", help="Path to log file")
+    analyze_parser.add_argument("--output", "-o", help="Output file for anomalies")
+    analyze_parser.add_argument("--format", "-f", 
+                              choices=['csv', 'json', 'html'], 
+                              default='csv',
+                              help="Output format")
+
+    # Detect command
+    detect_parser = subparsers.add_parser('detect', help='Detect log formats')
+    detect_parser.add_argument("log_file", help="Path to log file")
+
+    # Stats command
+    stats_parser = subparsers.add_parser('stats', help='Generate statistics')
+    stats_parser.add_argument("log_file", help="Path to log file")
+    stats_parser.add_argument("--output", "-o", help="Output file for stats")
     
     args = parser.parse_args()
-    
+    logging.info("Parsed CLI arguments: %s", args)
+
+    if not os.path.isfile(args.log_file):
+        logging.error("File not found: %s", args.log_file)
+        exit(1)
+
     analyzer = LogAnalyzer()
-    try:
-        results = analyzer.analyze(args.log_file)
-        
-        print("\n=== ANALYSIS RESULTS ===")
-        print("Log Type Confidences:")
-        for t, c in results['type_confidences'].items():
-            print(f"- {t.title()}: {c:.1%}")
-        
-        print("\nAnomaly Summary:")
-        print(results['anomalies'][['timestamp', 'host', 'message']].to_string(index=False))
-        
-        print("\nStatistics:")
-        print(f"Total Entries: {results['stats']['total_entries']}")
-        print(f"Error Rate: {results['stats']['error_rate']:.1%}")
-        print(f"Common Hosts: {results['stats']['common_hosts']}")
-        
-        if args.output:
-            results['anomalies'].to_csv(args.output, index=False)
-            print(f"\nResults saved to {args.output}")
     
+    try:
+        if args.command == 'analyze':
+            logging.info("Running 'analyze' command")
+            results = analyzer.analyze(args.log_file)
+            logging.info("Analysis results obtained")
+
+            print("\n=== ANALYSIS RESULTS ===")
+            print("Log Type Confidences:")
+            for t, c in results['type_confidences'].items():
+                print(f"- {t.title()}: {c:.1%}")
+            
+            print("\nTop Anomalies:")
+            print(results['anomalies'][['timestamp', 'host', 'message']].head(10).to_string(index=False))
+            
+            print("\nStatistics:")
+            print(f"Total Entries: {results['stats']['total_entries']}")
+            print(f"Error Rate: {results['stats']['error_rate']:.1%}")
+            print(f"Common Hosts: {results['stats']['common_hosts']}")
+            
+            if args.output:
+                if args.format == 'csv':
+                    results['anomalies'].to_csv(args.output, index=False)
+                elif args.format == 'json':
+                    results['anomalies'].to_json(args.output, orient='records')
+                elif args.format == 'html':
+                    results['anomalies'].to_html(args.output)
+                logging.info("Results saved to %s", args.output)
+                print(f"\nResults saved to {args.output}")
+
+        elif args.command == 'detect':
+            logging.info("Running 'detect' command")
+            confidences = analyzer.detect_log_types(args.log_file)
+            print("Log Format Probabilities:")
+            for t, p in sorted(confidences.items(), key=lambda x: x[1], reverse=True):
+                print(f"- {t:<12}: {p:.1%}")
+            logging.info("'detect' command completed")
+
+        elif args.command == 'stats':
+            logging.info("Running 'stats' command")
+            logs = analyzer.parse_logs(args.log_file)
+            stats = analyzer._compute_statistics(logs)
+            print("\n=== STATISTICS ===")
+            print(f"Total Entries: {stats['total_entries']}")
+            print(f"Error Rate: {stats['error_rate']:.1%}")
+            print(f"Common Hosts: {stats['common_hosts']}")
+            print("\nHTTP Status Distribution:")
+            print(stats['http_status_distribution'])
+            
+            if args.output:
+                pd.Series(stats).to_json(args.output)
+                logging.info("Statistics saved to %s", args.output)
+                print(f"Statistics saved to {args.output}")
     except Exception as e:
-        logging.error(f"Analysis failed: {str(e)}")
+        logging.error("Operation failed: %s", str(e))
         exit(1)
 
 if __name__ == "__main__":
+    logging.info("Application started")
     main()
