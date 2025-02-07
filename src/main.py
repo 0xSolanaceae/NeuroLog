@@ -296,7 +296,7 @@ class LogAnalyzer:
 def main():
     logging.info("Starting CLI")
     parser = argparse.ArgumentParser(
-        description="Enterprise Log Analysis System",
+        description="ML-Powered Log Analysis",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     subparsers = parser.add_subparsers(dest='command', required=True)
@@ -367,14 +367,15 @@ def main():
 
         elif args.command == 'stats':
             logging.info("Running 'stats' command")
-            logs = analyzer.parse_logs(args.log_file)
-            stats = analyzer._compute_statistics(logs)
+            results = analyzer.analyze(args.log_file)
+            stats = results.get('stats', {})
+
             print("\n=== STATISTICS ===")
-            print(f"Total Entries: {stats['total_entries']}")
-            print(f"Error Rate: {stats['error_rate']:.1%}")
-            print(f"Common Hosts: {stats['common_hosts']}")
+            print(f"Total Entries: {stats.get('total_entries', 0)}")
+            print(f"Error Rate: {stats.get('error_rate', 0):.1%}")
+            print(f"Common Hosts: {stats.get('common_hosts', {})}")
             print("\nHTTP Status Distribution:")
-            print(stats['http_status_distribution'])
+            print(stats.get('http_status_distribution', {}))
             
             if args.output:
                 pd.Series(stats).to_json(args.output)
