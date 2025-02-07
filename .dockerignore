@@ -1,0 +1,29 @@
+# Ignore Python caches and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore virtual environment directories
+.env
+.venv
+env/
+venv/
+
+# Ignore build artifacts and package metadata
+build/
+dist/
+.eggs/
+*.egg-info
+
+# Ignore version control directories and files
+.git/
+.gitignore
+
+# Ignore test outputs and caches
+.tox/
+.nox/
+.pytest_cache/
+.cache/
+
+# ignore logs
+src/logs/
