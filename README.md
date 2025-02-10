@@ -4,6 +4,15 @@
 
 NeuroLog is a log analysis tool that leverages machine learning (ML) and natural language processing (NLP) to intelligently parse, analyze, and detect anomalies in diverse log formats. Designed for scalability and robustness, NeuroLog is ideal for DevOps, security analysts, and system administrators who need to extract actionable insights from complex log data.
 
+## Benchmark Results
+| Metric          | Proposed System | ELK Stack | Graylog |
+|-----------------|-----------------|-----------|---------|
+| Format Accuracy | 92.4%           | 81.2%     | 78.9%   |
+| Anomaly F1      | 0.87            | 0.79      | 0.82    |
+| RAM Efficiency  | 1.2GB/1M logs   | 3.8GB     | 2.9GB   |
+
+[docs/log_analysis_paper.md](docs/log_analysis_paper.md)
+
 ---
 
 ## Key Features
@@ -55,7 +64,7 @@ cd src
 poetry run python neurolog.py analyze /path/to/logfile.log --output anomalies.csv --format csv
 ```
 
-![example img](/assets/example.png)
+![example_img](/assets/example.png)
 
 - Detects anomalies and generates insights.
 - Supports CSV, JSON, and HTML outputs.
@@ -85,11 +94,6 @@ poetry run python neurolog.py stats /path/to/logfile.log --output stats.json
 - Categorical: HTTP methods, log levels.
 - Text: TF-IDF vectorization of log messages.
 
----
-
-## Contributing
-
-Contributions are welcome! Fork the repository, create a feature branch, and submit a pull request.
 
 ---
 
