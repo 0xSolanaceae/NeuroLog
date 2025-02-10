@@ -6,6 +6,7 @@ import os
 import pandas as pd
 import numpy as np
 import warnings
+from yaspin import yaspin
 from dateutil.parser import parse as date_parse
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -338,9 +339,10 @@ def main():
     try:
         if args.command == 'analyze':
             logging.info("Running 'analyze' command")
-            results = analyzer.analyze(args.log_file)
+            with yaspin(text="Analyzing log file", color="cyan") as spinner:
+                results = analyzer.analyze(args.log_file)
+                spinner.ok("✔")
             logging.info("Analysis results obtained")
-
             print("\n=== ANALYSIS RESULTS ===")
             print("Log Type Confidences:")
             for t, c in results['type_confidences'].items():
@@ -393,5 +395,9 @@ def main():
         exit(1)
 
 if __name__ == "__main__":
+    from yaspin import yaspin
     logging.info("Application started")
+    with yaspin(text="Starting up...", color="cyan") as spinner:
+        _ = LogAnalyzer()  # Trigger startup tasks
+        spinner.ok("✔")
     main()
