@@ -20,27 +20,25 @@ logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %
 
 class LogAnalyzer:
     """Advanced Machine Learning-powered log analysis engine"""
-    
-    LOG_TYPES = ['docker', 'kubernetes', 'syslog', 'apache', 'nginx', 'windows']
+
     MAX_SAMPLE_LINES = 1000
-    CHUNK_SIZE = 10000  # For memory-efficient processing
+    CHUNK_SIZE = 10000
 
     def __init__(self):
         logging.info("Initializing LogAnalyzer")
+        self.dataset_dir = os.path.join(os.path.dirname(__file__), "dataset")
+        self.LOG_TYPES = [os.path.splitext(f)[0] for f in os.listdir(self.dataset_dir) if f.endswith(".log")]
         self.log_type_model = self._init_log_type_model()
         self.analysis_pipeline = self._build_analysis_pipeline()
         self._compiled_patterns = self._load_parsing_patterns()
 
     def _init_log_type_model(self) -> OneVsRestClassifier:
         logging.info("Initializing log type model from training files")
-        base_path = os.path.join(os.path.dirname(__file__), "training_data")
+        # Build training_files dynamically from dataset_dir and LOG_TYPES
         training_files = {
-            'docker': os.path.join(base_path, "docker.log"),
-            'kubernetes': os.path.join(base_path, "kubernetes.log"),
-            'nginx': os.path.join(base_path, "nginx.log"),
-            'syslog': os.path.join(base_path, "syslog.log")
+            log_type: os.path.join(self.dataset_dir, f"{log_type}.log")
+            for log_type in self.LOG_TYPES
         }
-        
         training_data = {}
         for log_type, file_path in training_files.items():
             if os.path.exists(file_path):
@@ -66,23 +64,27 @@ class LogAnalyzer:
         patterns = [
             # Docker JSON format
             (r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\S+) (\S+) \{"log":"(.*?)\\n".*\}', 
-             ['timestamp', 'host', 'level', 'message']),
+            ['timestamp', 'host', 'level', 'message']),
             
             # Syslog format
             (r'^(\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) (\S+) (\S+)\[(\d+)\]: (.*)$', 
-             ['timestamp', 'host', 'app', 'pid', 'message']),
+            ['timestamp', 'host', 'app', 'pid', 'message']),
             
             # Apache Common Log Format
             (r'^(\S+) (\S+) (\S+) \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+)$', 
-             ['ip', 'client_id', 'user_id', 'timestamp', 'method', 'url', 'protocol', 'status', 'size']),
+            ['ip', 'client_id', 'user_id', 'timestamp', 'method', 'url', 'protocol', 'status', 'message']),
             
             # Nginx access log
             (r'^(\S+) - (\S+) \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+) "(.*?)" "(.*?)"$',
-             ['ip', 'remote_user', 'timestamp', 'method', 'url', 'protocol', 'status', 'size', 'referer', 'user_agent']),
+            ['ip', 'remote_user', 'timestamp', 'method', 'url', 'protocol', 'status', 'size', 'referer', 'user_agent']),
             
             # Windows Event Log
             (r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\S+) (\S+): (\S+): (.*)$', 
-             ['timestamp', 'host', 'source', 'event_id', 'message'])
+            ['timestamp', 'host', 'source', 'event_id', 'message']),
+            
+            # Kubernetes container log pattern
+            (r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(stdout|stderr)\s+(\w+)\s+(.*)$',
+            ['timestamp', 'stream', 'level', 'message'])
         ]
         
         return [(re.compile(pattern), fields) for pattern, fields in patterns]
@@ -147,9 +149,9 @@ class LogAnalyzer:
         logging.info("Using fallback parse for type: %s and line: %s", detected_type, line)
         type_patterns = {
             'apache': (r'^(\S+) (\S+) (\S+) \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+)$', 
-                      ['ip', 'client_id', 'user_id', 'timestamp', 'method', 'url', 'protocol', 'status', 'size']),
+                    ['ip', 'client_id', 'user_id', 'timestamp', 'method', 'url', 'protocol', 'status', 'size']),
             'syslog': (r'^(\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) (\S+) (\S+)\[(\d+)\]: (.*)$', 
-                      ['timestamp', 'host', 'app', 'pid', 'message'])
+                    ['timestamp', 'host', 'app', 'pid', 'message'])
         }
         
         if detected_type in type_patterns:
@@ -157,6 +159,9 @@ class LogAnalyzer:
             match = re.match(pattern, line)
             if match:
                 entry = dict(zip(fields, match.groups()))
+                # For Apache logs, set 'message' using other fields if missing.
+                if detected_type == 'apache' and 'message' not in entry:
+                    entry['message'] = f"{entry.get('method', '')} {entry.get('url', '')} {entry.get('protocol', '')}"
                 entry['timestamp'] = self._safe_parse_timestamp(entry.get('timestamp', ''))
                 return entry
         
@@ -171,15 +176,20 @@ class LogAnalyzer:
 
     def _postprocess_df(self, df: pd.DataFrame) -> pd.DataFrame:
         logging.info("Post-processing DataFrame with %d records", len(df))
-        # Extract common features from message content
         df['http_status'] = df['message'].str.extract(r'\s(\d{3})\s').astype(float)
         df['http_method'] = df['message'].str.extract(r'(GET|POST|PUT|DELETE|HEAD|OPTIONS|PATCH)\s', flags=re.IGNORECASE)
         df['msg_length'] = df['message'].str.len()
         df['error_count'] = df['message'].str.count(r'(?i)error|exception|fail')
         df['warning_count'] = df['message'].str.count(r'(?i)warn|alert|critical')
-        
-        # Fill missing HTTP status values with 0 (or another default)
         df['http_status'] = df['http_status'].fillna(0)
+        
+        # Ensure column 'host' exists. If missing, use 'ip' if available, else default.
+        if 'host' not in df.columns:
+            df['host'] = df.get('ip', 'unknown')
+            
+        # Ensure column 'level' exists
+        if 'level' not in df.columns:
+            df['level'] = 'UNKNOWN'
         
         logging.info("Completed post-processing")
         return df
