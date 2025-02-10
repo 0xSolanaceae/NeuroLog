@@ -1,8 +1,8 @@
-@software{NeuroLog,
-  author = {0xSolanaceae},
-  title = {NeuroLog: ML-Powered Log Analysis},
-  year = {2025},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/0xSolanaceae/NeuroLog}}
-}
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "0xSolanaceae"
+  given-names: ""
+title: "NeuroLog: ML-Powered Log Analysis"
+date-released: "2025"
+url: "https://github.com/0xSolanaceae/NeuroLog"
