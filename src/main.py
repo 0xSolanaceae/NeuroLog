@@ -32,33 +32,23 @@ class LogAnalyzer:
         self._compiled_patterns = self._load_parsing_patterns()
 
     def _init_log_type_model(self) -> OneVsRestClassifier:
-        logging.info("Initializing log type model")
-        training_data = {
-            'docker': [
-                '{"log":"Container started\\n","stream":"stdout","time":"...Z"}',
-                '{"log":"Health check failed\\n","stream":"stderr","time":"...Z"}'
-            ],
-            'kubernetes': [
-                'k8s.io/client-go/transport RoundTrip ...',
-                'kubelet: Pod "pod-123" container status ...'
-            ],
-            'syslog': [
-                'May  5 12:34:56 hostname cron[123]: ERROR: Failed to start job',
-                'Jun 10 01:23:45 hostname sudo: pam_unix(sudo:session): session closed'
-            ],
-            'apache': [
-                '127.0.0.1 - - [05/May/2023:12:34:56 +0000] "GET / HTTP/1.1" 200 1234',
-                '192.168.1.1 - - [05/May/2023:12:35:01 +0000] "POST /login HTTP/1.1" 401 567'
-            ],
-            'nginx': [
-                '192.168.1.1 - - [05/May/2023:12:35:01 +0000] "GET /images/logo.png HTTP/1.1" 304 0',
-                '10.0.0.2 - - [05/May/2023:12:35:02 +0000] "GET /api/data HTTP/1.1" 500 123'
-            ],
-            'windows': [
-                '2023-05-05T12:34:56.123Z INFO Service Control Manager: Service "Windows Update" started.',
-                '2023-05-05T12:35:00.456Z ERROR System: A device attached to the system is not functioning.'
-            ]
+        logging.info("Initializing log type model from training files")
+        base_path = os.path.join(os.path.dirname(__file__), "training_data")
+        training_files = {
+            'docker': os.path.join(base_path, "docker.log"),
+            'kubernetes': os.path.join(base_path, "kubernetes.log"),
+            'nginx': os.path.join(base_path, "nginx.log"),
+            'syslog': os.path.join(base_path, "syslog.log")
         }
+        
+        training_data = {}
+        for log_type, file_path in training_files.items():
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    training_data[log_type] = [line.strip() for line in f if line.strip()]
+            else:
+                logging.warning("Training file for %s not found at %s", log_type, file_path)
+                training_data[log_type] = []
         
         texts, labels = [], []
         for log_type, examples in training_data.items():
@@ -113,46 +103,42 @@ class LogAnalyzer:
     def parse_logs(self, log_file: str) -> pd.DataFrame:
         logging.info("Starting log parsing for file: %s", log_file)
         entries = []
-        format_counts = {p:0 for p in self.LOG_TYPES}
+        format_counts = {p: 0 for p in self.LOG_TYPES}
         format_counts['unknown'] = 0
-        
-        try:
-            with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
-                for chunk in pd.read_csv(f, chunksize=self.CHUNK_SIZE, header=None, names=['raw']):
-                    for line in chunk['raw']:
-                        line = line.strip()
-                        parsed = False
-                        
-                        # Try precompiled patterns first
-                        for pattern, fields in self._compiled_patterns:
-                            match = pattern.match(line)
-                            if match:
-                                logging.info("Matched pattern for line: %s", line)
-                                entry = dict(zip(fields, match.groups()))
-                                entry['timestamp'] = self._safe_parse_timestamp(entry.get('timestamp', ''))
-                                entries.append(entry)
-                                parsed = True
-                                break
-                        
-                        # Fallback to ML-based parsing
-                        if not parsed:
-                            proba = self.log_type_model.predict_proba([line])[0]
-                            detected = self.LOG_TYPES[np.argmax(proba)]
-                            format_counts[detected] += 1
-                            logging.info("Fallback parsing for line: %s as type: %s", line, detected)
-                            entries.append(self._parse_fallback(line, detected))
-        
-        except UnicodeDecodeError as e:
-            logging.error("Encoding error: %s", str(e))
-            raise
-        except Exception as e:
-            logging.error("Parsing failed: %s", str(e))
-            raise
-        
+
+        with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.read().splitlines()
+
+        # Process in chunks
+        for i in range(0, len(lines), self.CHUNK_SIZE):
+            chunk = lines[i:i+self.CHUNK_SIZE]
+            for line in chunk:
+                line = line.strip()
+                parsed = False
+
+                # Try precompiled patterns first
+                for pattern, fields in self._compiled_patterns:
+                    match = pattern.match(line)
+                    if match:
+                        logging.info("Matched pattern for line: %s", line)
+                        entry = dict(zip(fields, match.groups()))
+                        entry['timestamp'] = self._safe_parse_timestamp(entry.get('timestamp', ''))
+                        entries.append(entry)
+                        parsed = True
+                        break
+
+                # Fallback to ML-based parsing
+                if not parsed:
+                    proba = self.log_type_model.predict_proba([line])[0]
+                    detected = self.LOG_TYPES[np.argmax(proba)]
+                    format_counts[detected] += 1
+                    logging.info("Fallback parsing for line: %s as type: %s", line, detected)
+                    entries.append(self._parse_fallback(line, detected))
+
         logging.info("Parsed %d log entries", len(entries))
         logging.info("Format distribution: %s", format_counts)
         return pd.DataFrame(entries).fillna({
-            'host': 'unknown', 
+            'host': 'unknown',
             'level': 'UNKNOWN',
             'message': ''
         }).pipe(self._postprocess_df)
@@ -271,7 +257,7 @@ class LogAnalyzer:
             stats['temporal_distribution'] = time_bins.value_counts().sort_index().to_dict()
         logging.info("Statistics computed: %s", stats)
         return stats
-
+    
     def detect_log_types(self, log_file: str) -> Dict:
         logging.info("Detecting log types for file: %s", log_file)
         try:
@@ -285,7 +271,12 @@ class LogAnalyzer:
                 return {}
 
             probas = self.log_type_model.predict_proba(sample)
-            results = pd.DataFrame(probas, columns=self.LOG_TYPES).mean().to_dict()
+            # Build a DataFrame using the classes learned by the model
+            classes = self.log_type_model.classes_
+            df_probas = pd.DataFrame(probas, columns=classes)
+            # Reindex to ensure all types in self.LOG_TYPES are present, filling missing with 0
+            df_probas = df_probas.reindex(columns=self.LOG_TYPES, fill_value=0)
+            results = df_probas.mean().to_dict()
             logging.info("Log types detected: %s", results)
             return results
         
