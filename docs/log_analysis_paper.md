@@ -127,7 +127,7 @@ Benchmarking reveals:
 
 ---
 
-**5. Conclusion and Future Work**  
+**5. Conclusion**  
 The analyzed system demonstrates that hybrid ML/rule-based approaches can overcome limitations of conventional log analyzers. Key advantages:  
 - 22.5% higher format detection accuracy than ELK  
 - 5× memory efficiency through chunked processing  
