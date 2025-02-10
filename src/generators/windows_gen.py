@@ -34,4 +34,4 @@ def main(entries):
     return "\n".join(lines)
 
 if __name__ == "__main__":
-    main(100)
+    main()
