@@ -106,14 +106,4 @@ GPLv3 License. See [LICENSE](LICENSE) for details.
 
 ## Citation
 
-If you use NeuroLog in your work, cite this repository:
-
-```bibtex
-@software{NeuroLog,
-  author = {Your Name},
-  title = {NeuroLog: AI-Powered Log Analysis System},
-  year = {2025},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/0xSolanaceae/NeuroLog}}
-}
+If you use NeuroLog in your work, cite this repository: [CITATION](CITATION.cff)
