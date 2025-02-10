@@ -1,4 +1,5 @@
 # written by 0xSolanaceae
+
 import re
 import logging
 import argparse

@@ -54,6 +54,9 @@ cd src
 ```bash
 poetry run python neurolog.py analyze /path/to/logfile.log --output anomalies.csv --format csv
 ```
+
+![example img](/assets/example.png)
+
 - Detects anomalies and generates insights.
 - Supports CSV, JSON, and HTML outputs.
 
@@ -81,14 +84,6 @@ poetry run python neurolog.py stats /path/to/logfile.log --output stats.json
 - Numeric: Message length, error/warning counts, HTTP status codes.
 - Categorical: HTTP methods, log levels.
 - Text: TF-IDF vectorization of log messages.
-
----
-
-## Future Work
-
-- Real-time log analysis with streaming platforms.
-- Deep learning models for advanced log understanding.
-- Custom log format support and dashboard integration.
 
 ---
 
