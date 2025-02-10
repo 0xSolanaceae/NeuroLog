@@ -133,13 +133,6 @@ The analyzed system demonstrates that hybrid ML/rule-based approaches can overco
 - 5× memory efficiency through chunked processing  
 - Effective unknown-format handling via ML fallback  
 
-Future directions:  
-1. Online learning for adaptive pattern recognition  
-2. Graph-based anomaly detection across host clusters  
-3. GPU-accelerated TF-IDF computation  
-
-This implementation establishes a foundation for next-generation log analysis systems capable of handling the complexity of cloud-native environments.
-
 ---
 
 **Appendix: Critical Code Path Analysis**  
