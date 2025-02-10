@@ -5,6 +5,7 @@ import argparse
 import os
 import pandas as pd
 import numpy as np
+import warnings
 from dateutil.parser import parse as date_parse
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -16,6 +17,8 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from typing import Dict, List, Tuple
 
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class LogAnalyzer:
@@ -175,24 +178,27 @@ class LogAnalyzer:
         }
 
     def _postprocess_df(self, df: pd.DataFrame) -> pd.DataFrame:
-        logging.info("Post-processing DataFrame with %d records", len(df))
-        df['http_status'] = df['message'].str.extract(r'\s(\d{3})\s').astype(float)
-        df['http_method'] = df['message'].str.extract(r'(GET|POST|PUT|DELETE|HEAD|OPTIONS|PATCH)\s', flags=re.IGNORECASE)
+        df['warning_count'] = df['message'].str.count(r'(?i)warning')
+        df['http_method'] = df['message'].str.extract(r'^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\b')
         df['msg_length'] = df['message'].str.len()
-        df['error_count'] = df['message'].str.count(r'(?i)error|exception|fail')
-        df['warning_count'] = df['message'].str.count(r'(?i)warn|alert|critical')
-        df['http_status'] = df['http_status'].fillna(0)
+        df['error_count'] = df['message'].str.count(r'(?i)error|exception|fail|timeout')
+        df['http_status'] = df['message'].str.extract(r'\b(\d{3})\b').astype(float)
         
-        # Ensure column 'host' exists. If missing, use 'ip' if available, else default.
-        if 'host' not in df.columns:
-            df['host'] = df.get('ip', 'unknown')
-            
-        # Ensure column 'level' exists
-        if 'level' not in df.columns:
-            df['level'] = 'UNKNOWN'
+        df['timestamp_delta'] = df['timestamp'].diff().dt.total_seconds().fillna(0)
+        df['status_5xx'] = df['http_status'].between(500, 599).astype(int)
+        df['unique_terms'] = df['message'].apply(lambda x: len(set(x.split())))
+        df['entropy'] = df['message'].apply(self._calculate_entropy)
+        df['suspect_ua'] = df['message'].str.contains(r'(?:curl|wget|nikto|sqlmap)', case=False)
         
-        logging.info("Completed post-processing")
         return df
+
+    def _calculate_entropy(self, text):
+        """Calculate Shannon entropy for message text"""
+        from collections import Counter
+        import math
+        counts = Counter(text)
+        probs = [c/len(text) for c in counts.values()]
+        return -sum(p * math.log(p) for p in probs)
 
     def _build_analysis_pipeline(self):
         logging.info("Building analysis pipeline")
