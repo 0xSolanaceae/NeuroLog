@@ -2,7 +2,7 @@ import os
 import tempfile
 import pandas as pd
 import pytest
-from src.main import LogAnalyzer  # see [src/main.py](src/main.py)
+from src.neurolog import LogAnalyzer
 
 def create_temp_log_file(lines):
     """Helper to create a temporary log file with the given lines."""
