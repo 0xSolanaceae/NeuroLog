@@ -19,21 +19,16 @@ log_generators = {
 parser = argparse.ArgumentParser(
     description="Generate log entries for various log types.\n\n"
                 "Usage example:\n"
-                "  python log_generator.py 1000 docker, syslog, windows",
+                "  python log_generator.py 1000 docker syslog windows",
     formatter_class=argparse.RawTextHelpFormatter
 )
 parser.add_argument("entries", type=int, help="Number of log entries to generate.")
-parser.add_argument("log_types", type=str, nargs="?", 
-                    help="Comma separated log types to generate (options: docker, kubernetes, syslog, nginx, apache, windows).")
+parser.add_argument("log_types", type=str, nargs="+", 
+                    help="Log types to generate (options: docker, kubernetes, syslog, nginx, apache, windows).")
 args = parser.parse_args()
 
 entries = args.entries
-
-if args.log_types:
-    selected_logs = [log.strip().lower() for log in args.log_types.split(",") if log.strip()]
-else:
-    selected = input("Enter comma separated log types to generate (options: docker, kubernetes, syslog, nginx, apache, windows): ")
-    selected_logs = [log.strip().lower() for log in selected.split(",") if log.strip()]
+selected_logs = [log.strip().lower() for log in args.log_types]
 
 if not selected_logs:
     sys.exit("No log types selected.")
