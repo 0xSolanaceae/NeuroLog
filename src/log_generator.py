@@ -39,8 +39,7 @@ if not selected_logs:
     sys.exit("No log types selected.")
 
 for log_type in selected_logs:
-    generator = log_generators.get(log_type)
-    if generator:
+    if generator := log_generators.get(log_type):
         print(f"Generating {entries} entries for {log_type} logs...")
         generator(entries)
     else:
