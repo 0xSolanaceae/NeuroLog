@@ -39,7 +39,7 @@ def load_parsing_patterns():
     Return a list of tuples, each containing a compiled regex pattern and the corresponding
     list of field names. These patterns are used to parse different log formats.
     """
-    with open('log_patterns.yaml', 'r') as file:
+    with open('patterns.yaml', 'r') as file:
         data = yaml.safe_load(file)
 
     return [
