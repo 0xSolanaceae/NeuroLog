@@ -3,6 +3,7 @@
 import re
 import logging
 import os
+import pickle
 import pandas as pd
 import numpy as np
 import warnings
@@ -35,10 +36,23 @@ class LogAnalyzer:
         self.log_type_model = self._init_log_type_model()
         self.analysis_pipeline = self._build_analysis_pipeline()
         self._compiled_patterns = load_parsing_patterns()
+        self.crf_model = self._load_crf_model()
+
+    def _load_crf_model(self, model_path='crf_model.pkl'):
+        """Load pre-trained CRF model from file"""
+        try:
+            with open(model_path, 'rb') as f:
+                logging.info(f"Loaded CRF model from {model_path}")
+                return pickle.load(f)
+        except FileNotFoundError:
+            logging.warning(f"CRF model not found at {model_path}. Using regex fallback only.")
+            return None
+        except Exception as e:
+            logging.error(f"Error loading CRF model: {str(e)}")
+            return None
 
     def _init_log_type_model(self) -> OneVsRestClassifier:
         logging.info("Initializing log type model from training files")
-        # Build training_files dynamically from dataset_dir and LOG_TYPES
         training_files = {
             log_type: os.path.join(self.dataset_dir, f"{log_type}.log")
             for log_type in self.LOG_TYPES
@@ -72,33 +86,27 @@ class LogAnalyzer:
         with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
             lines = f.read().splitlines()
 
-        # Process in chunks
         for i in range(0, len(lines), self.CHUNK_SIZE):
             chunk = lines[i:i+self.CHUNK_SIZE]
             for line in chunk:
                 line = line.strip()
                 parsed = False
 
-                # Try precompiled patterns first
                 for pattern, fields in self._compiled_patterns:
                     if match := pattern.match(line):
-                        logging.info("Matched pattern for line: %s", line)
                         entry = dict(zip(fields, match.groups()))
                         entry['timestamp'] = safe_parse_timestamp(entry.get('timestamp', ''))
                         entries.append(entry)
                         parsed = True
                         break
 
-                # Fallback to ML-based parsing
                 if not parsed:
                     proba = self.log_type_model.predict_proba([line])[0]
                     detected = self.LOG_TYPES[np.argmax(proba)]
                     format_counts[detected] += 1
-                    logging.info("Fallback parsing for line: %s as type: %s", line, detected)
                     entries.append(self._parse_fallback(line, detected))
 
         logging.info("Parsed %d log entries", len(entries))
-        logging.info("Format distribution: %s", format_counts)
         return pd.DataFrame(entries).fillna({
             'host': 'unknown',
             'level': 'UNKNOWN',
@@ -106,29 +114,85 @@ class LogAnalyzer:
         }).pipe(self._postprocess_df)
 
     def _parse_fallback(self, line: str, detected_type: str) -> Dict:
-        logging.info("Using fallback parse for type: %s and line: %s", detected_type, line)
-        type_patterns = {
-            'apache': (r'^(\S+) (\S+) (\S+) \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+)$', 
-                    ['ip', 'client_id', 'user_id', 'timestamp', 'method', 'url', 'protocol', 'status', 'size']),
-            'syslog': (r'^(\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) (\S+) (\S+)\[(\d+)\]: (.*)$', 
-                    ['timestamp', 'host', 'app', 'pid', 'message'])
-        }
+        """Parse line using CRF model or basic fallback"""
+        return self._crf_parse(line) if self.crf_model else self._basic_fallback(line)
+    def _crf_parse(self, line: str) -> Dict:
+        """Parse line using CRF model"""
+        tokens = self._tokenize_with_spans(line)
+        if not tokens:
+            return self._basic_fallback(line)
+        
+        features = self._extract_features([t[0] for t in tokens])
+        labels = self.crf_model.predict_single(features)
+        
+        entry = {}
+        current_field = None
+        current_values = []
+        
+        for token, label in zip([t[0] for t in tokens], labels):
+            if label == 'O':
+                if current_field:
+                    entry[current_field] = ' '.join(current_values)
+                    current_field = None
+                    current_values = []
+                continue
+                
+            if label != current_field:
+                if current_field:
+                    entry[current_field] = ' '.join(current_values)
+                current_field = label
+                current_values = [token]
+            else:
+                current_values.append(token)
+        
+        if current_field:
+            entry[current_field] = ' '.join(current_values)
+        
+        entry.setdefault('timestamp', '')
+        entry['timestamp'] = safe_parse_timestamp(entry['timestamp'])
+        entry.setdefault('host', 'unknown')
+        entry.setdefault('level', 'UNKNOWN')
+        entry.setdefault('message', line)
+        return entry
 
-        if detected_type in type_patterns:
-            pattern, fields = type_patterns[detected_type]
-            if match := re.match(pattern, line):
-                entry = dict(zip(fields, match.groups()))
-                # For Apache logs, set 'message' using other fields if missing.
-                if detected_type == 'apache' and 'message' not in entry:
-                    entry['message'] = f"{entry.get('method', '')} {entry.get('url', '')} {entry.get('protocol', '')}"
-                entry['timestamp'] = safe_parse_timestamp(entry.get('timestamp', ''))
-                return entry
+    @staticmethod
+    def _tokenize_with_spans(line):
+        """Tokenize line with position tracking"""
+        tokens = []
+        for match in re.finditer(r'(\S+|\".*?\")', line):
+            start, end = match.start(), match.end()
+            token = match.group()
+            tokens.append((token, start, end))
+        return tokens
 
-        logging.info("Default fallback parsing for line: %s", line)
-        # Default fallback for unknown formats
+    @staticmethod
+    def _extract_features(tokens):
+        """Generate CRF features for tokens"""
+        features = []
+        for i, token in enumerate(tokens):
+            feat = {
+                'word': token,
+                'lower': token.lower(),
+                'isupper': token.isupper(),
+                'islower': token.islower(),
+                'isdigit': token.isdigit(),
+                'prefix3': token[:3],
+                'suffix3': token[-3:],
+                'position': i,
+                'length': len(token),
+            }
+            if i > 0:
+                feat['prev_word'] = tokens[i-1]
+            if i < len(tokens)-1:
+                feat['next_word'] = tokens[i+1]
+            features.append(feat)
+        return features
+
+    def _basic_fallback(self, line: str) -> Dict:
+        """Basic regex fallback for failed CRF parsing"""
         return {
             'timestamp': safe_parse_timestamp(line[:30]),
-            'host': detected_type,
+            'host': 'unknown',
             'level': 'UNKNOWN',
             'message': line
         }
@@ -153,27 +217,33 @@ class LogAnalyzer:
         numeric_features = ['msg_length', 'error_count', 'warning_count', 'http_status']
         categorical_features = ['http_method', 'level']
 
-        pipeline = make_pipeline(
-            ColumnTransformer([
-                ('numeric', make_pipeline(
-                    SimpleImputer(strategy='median'),
-                    StandardScaler()
-                ), numeric_features),
-                ('categorical', make_pipeline(
-                    SimpleImputer(strategy='constant', fill_value='missing'),
-                    OneHotEncoder(handle_unknown='ignore')
-                ), categorical_features),
-                ('text', TfidfVectorizer(max_features=1000), 'message')
-            ]),
+        return make_pipeline(
+            ColumnTransformer(
+                [
+                    (
+                        'numeric',
+                        make_pipeline(
+                            SimpleImputer(strategy='median'), StandardScaler()
+                        ),
+                        numeric_features,
+                    ),
+                    (
+                        'categorical',
+                        make_pipeline(
+                            SimpleImputer(
+                                strategy='constant', fill_value='missing'
+                            ),
+                            OneHotEncoder(handle_unknown='ignore'),
+                        ),
+                        categorical_features,
+                    ),
+                    ('text', TfidfVectorizer(max_features=1000), 'message'),
+                ]
+            ),
             IsolationForest(
-                contamination=0.05, 
-                random_state=42, 
-                n_jobs=-1,
-                verbose=0
-            )
+                contamination=0.05, random_state=42, n_jobs=-1, verbose=0
+            ),
         )
-        logging.info("Analysis pipeline built")
-        return pipeline
 
     def analyze(self, log_file: str) -> Dict:
         logging.info("Starting full analysis on file: %s", log_file)
@@ -184,23 +254,18 @@ class LogAnalyzer:
             raise
 
     def anomaly_detection(self, log_file):
-        # Stage 1: Log type detection
         type_confidences = self.detect_log_types(log_file)
         logging.info("Log type confidences: %s", type_confidences)
 
-        # Stage 2: Memory-efficient parsing
         logs = self.parse_logs(log_file)
         if logs.empty:
             raise ValueError("No parsable log entries found")
-        logging.info("Log parsing completed. Records: %d", len(logs))
-
-        # Stage 3: Anomaly detection
-        logging.info("Fitting analysis pipeline for anomaly detection")
+        
+        logging.info("Fitting analysis pipeline")
         self.analysis_pipeline.fit(logs)
         logs['anomaly_score'] = self.analysis_pipeline.decision_function(logs)
         logs['anomaly'] = self.analysis_pipeline.predict(logs)
-        logging.info("Anomaly detection complete. Found anomalies: %d", len(logs[logs['anomaly'] == -1]))
-
+        
         return {
             'type_confidences': type_confidences,
             'anomalies': logs[logs['anomaly'] == -1],
@@ -208,7 +273,6 @@ class LogAnalyzer:
         }
 
     def _compute_statistics(self, logs: pd.DataFrame) -> Dict:
-        logging.info("Computing statistics from logs")
         stats = {
             'total_entries': len(logs),
             'error_rate': logs['error_count'].sum() / len(logs),
@@ -217,15 +281,12 @@ class LogAnalyzer:
             'http_status_distribution': logs['http_status'].value_counts().to_dict()
         }
         
-        # Temporal analysis
         if not logs['timestamp'].isna().all():
             time_bins = pd.cut(logs['timestamp'], bins=10)
             stats['temporal_distribution'] = time_bins.value_counts().sort_index().to_dict()
-        logging.info("Statistics computed: %s", stats)
         return stats
     
     def detect_log_types(self, log_file: str) -> Dict:
-        logging.info("Detecting log types for file: %s", log_file)
         try:
             return self.dataframe_generation(log_file)
         except Exception as e:
@@ -239,16 +300,12 @@ class LogAnalyzer:
                 for line, _ in zip(f, range(self.MAX_SAMPLE_LINES))
                 if line.strip()
             ]
+        
         if not sample:
-            logging.warning("Empty log file detected")
             return {}
 
         probas = self.log_type_model.predict_proba(sample)
-        # Build a DataFrame using the classes learned by the model
         classes = self.log_type_model.classes_
         df_probas = pd.DataFrame(probas, columns=classes)
-        # Reindex to ensure all types in self.LOG_TYPES are present, filling missing with 0
         df_probas = df_probas.reindex(columns=self.LOG_TYPES, fill_value=0)
-        results = df_probas.mean().to_dict()
-        logging.info("Log types detected: %s", results)
-        return results
+        return df_probas.mean().to_dict()

@@ -30,13 +30,18 @@ def cli_main():
     # Subcommand: detect
     detect_parser = subparsers.add_parser('detect', help='Detect log formats')
     detect_parser.add_argument("log_file", help="Path to the log file")
+    
+    # subcommand: train-crf
+    train_parser = subparsers.add_parser('train-crf', help='Train CRF model for log parsing')
+    train_parser.add_argument("--output", "-o", default="crf_model.pkl", 
+                            help="Output path for trained model")
 
     parsers(
         subparsers, 'stats', 'Generate log statistics', "Output file for stats"
     )
     args = parser.parse_args()
 
-    if not os.path.isfile(args.log_file):
+    if args.command in ['analyze', 'detect', 'stats'] and not os.path.isfile(args.log_file):
         logging.error("File not found: %s", args.log_file)
         exit(1)
 
@@ -52,6 +57,12 @@ def cli_main():
 
     elif args.command == 'stats':
         stats_output(analyzer, args)
+    
+    elif args.command == 'train-crf':
+        from train_crf import train_and_save_model
+        with yaspin(text="Training CRF model", color="yellow") as spinner:
+            train_and_save_model(args.output)
+            spinner.ok("✔")
 
 
 def stats_output(analyzer, args):
