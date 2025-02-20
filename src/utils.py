@@ -6,6 +6,7 @@ import pandas as pd
 from dateutil.parser import parse as date_parse
 from collections import Counter
 import math
+import yaml
 
 def safe_parse_timestamp(ts_str: str) -> pd.Timestamp:
     """
@@ -38,29 +39,10 @@ def load_parsing_patterns():
     Return a list of tuples, each containing a compiled regex pattern and the corresponding
     list of field names. These patterns are used to parse different log formats.
     """
-    patterns = [
-        # Docker JSON format
-        (r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\S+) (\S+) \{"log":"(.*?)\\n".*\}',
-         ['timestamp', 'host', 'level', 'message']),
-        
-        # Syslog format
-        (r'^(\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) (\S+) (\S+)\[(\d+)\]: (.*)$',
-         ['timestamp', 'host', 'app', 'pid', 'message']),
-        
-        # Apache Common Log Format
-        (r'^(\S+) (\S+) (\S+) \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+)$',
-         ['ip', 'client_id', 'user_id', 'timestamp', 'method', 'url', 'protocol', 'status', 'message']),
-        
-        # Nginx access log
-        (r'^(\S+) - (\S+) \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+) "(.*?)" "(.*?)"$',
-         ['ip', 'remote_user', 'timestamp', 'method', 'url', 'protocol', 'status', 'size', 'referer', 'user_agent']),
-        
-        # Windows Event Log
-        (r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\S+) (\S+): (\S+): (.*)$',
-         ['timestamp', 'host', 'source', 'event_id', 'message']),
-        
-        # Kubernetes container log pattern
-        (r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(stdout|stderr)\s+(\w+)\s+(.*)$',
-         ['timestamp', 'stream', 'level', 'message'])
+    with open('log_patterns.yaml', 'r') as file:
+        data = yaml.safe_load(file)
+
+    return [
+        (re.compile(item['pattern']), item['fields'])
+        for item in data['patterns']
     ]
-    return [(re.compile(pattern), fields) for pattern, fields in patterns]

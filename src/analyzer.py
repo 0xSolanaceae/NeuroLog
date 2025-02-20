@@ -38,7 +38,7 @@ class LogAnalyzer:
         self._compiled_patterns = load_parsing_patterns()
         self.crf_model = self._load_crf_model()
 
-    def _load_crf_model(self, model_path='crf_model.pkl'):
+    def _load_crf_model(self, model_path='models/crf_model.pkl'):
         """Load pre-trained CRF model from file"""
         try:
             with open(model_path, 'rb') as f:

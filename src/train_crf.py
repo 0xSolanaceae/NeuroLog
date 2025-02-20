@@ -4,7 +4,7 @@ import pickle
 from analyzer import LogAnalyzer
 from sklearn_crfsuite import CRF
 
-def train_and_save_model(model_path='crf_model.pkl'):
+def train_and_save_model(model_path='models/crf_model.pkl'):
     # Initialize analyzer to access dataset and patterns
     analyzer = LogAnalyzer()
     
