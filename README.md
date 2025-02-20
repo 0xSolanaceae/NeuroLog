@@ -19,7 +19,6 @@ NeuroLog is an advanced log analysis tool combining machine learning (ML) and st
 
 - **Hybrid Parsing Engine**: Combines regex patterns with CRF models for structured log parsing
 - **ML-Powered Anomalies**: Isolation Forest detects outliers with contextual features
-- **Pre-trained Models**: Production-ready CRF models for common log formats
 - **Dynamic Training**: On-demand model retraining for custom formats
 - **Memory-Optimized**: Processes 10K logs/sec with <2GB RAM usage
 
@@ -48,20 +47,19 @@ cd src
 
 ### 2. Full Pipeline Analysis
 ```bash
-poetry run python neurolog.py analyze /path/to/logs.log \
-  --output results/ \
-  --format csv
+poetry run neurolog.py analyze logs/path/to/log.log --output results/anomalies.csv
 ```
 - Automatic format detection
 - Anomaly scoring with explanations
 - Multi-format output support (CSV/JSON/HTML)
 
+![Example](assets/example.png)
+
 ### 3. CRF Model Management
 ```bash
 # Train new model
-poetry run python neurolog.py train-crf \
-  --output models/crf_v1.pkl
-
+poetry run python neurolog.py train-crf --output models/crf_model.pkl
+```
 
 ---
 
