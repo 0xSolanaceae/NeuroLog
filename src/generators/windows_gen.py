@@ -1,5 +1,4 @@
 import random
-import os
 from faker import Faker
 
 fake = Faker()
@@ -26,15 +25,12 @@ def generate_windows_log_line():
     return f"{timestamp}  {source}  EventID:{event_id}  {level}  {message}"
 
 def main(entries):
-    lines = [generate_windows_log_line() for _ in range(entries)]
-    log_dir = "src/logs"
-    os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, "windows.log")
+    logs = [generate_windows_log_line() for _ in range(entries)]
+    log_path = "logs/windows.log"
     with open(log_path, "w") as file:
-        for log in lines:
+        for log in logs:
             file.write(log + "\n")
     print(f"Generated {entries} lines of Windows logs in '{log_path}'")
-    return "\n".join(lines)
 
 if __name__ == "__main__":
     main()

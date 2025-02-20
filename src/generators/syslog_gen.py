@@ -1,5 +1,4 @@
 import random
-import os
 from faker import Faker
 
 fake = Faker()
@@ -44,15 +43,12 @@ def generate_syslog_line():
     return f"{timestamp} {HOSTNAME} {tag}: {message}"
 
 def main(entries):
-    lines = [generate_syslog_line() for _ in range(entries)]
-    log_dir = "src/logs"
-    os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, "syslog.log")
+    logs = [generate_syslog_line() for _ in range(entries)]
+    log_path = "logs/syslog.log"
     with open(log_path, "w") as file:
-        for log in lines:
+        for log in logs:
             file.write(log + "\n")
-    print(f"Generated {entries} lines of syslog logs in '{log_path}'")
-    return "\n".join(lines)
+    print(f"Generated {entries} lines of Syslog logs in '{log_path}'")
 
 if __name__ == "__main__":
     main()

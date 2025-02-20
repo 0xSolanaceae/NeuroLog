@@ -1,6 +1,5 @@
 import random
 import datetime
-import os
 from faker import Faker
 
 fake = Faker()
@@ -33,15 +32,12 @@ def generate_apache_log_line():
     return f'{ip} {ident} {user} [{timestamp}] "{request}" {status} {bytes_sent} "{user_agent}"'
 
 def main(entries):
-    lines = [generate_apache_log_line() for _ in range(entries)]
-    log_dir = "src/logs"
-    os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, "apache.log")
+    logs = [generate_apache_log_line() for _ in range(entries)]
+    log_path = "logs/apache.log"
     with open(log_path, "w") as file:
-        for log in lines:
+        for log in logs:
             file.write(log + "\n")
     print(f"Generated {entries} lines of Apache logs in '{log_path}'")
-    return "\n".join(lines)
 
 if __name__ == "__main__":
     main()

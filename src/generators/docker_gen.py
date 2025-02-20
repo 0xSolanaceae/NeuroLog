@@ -1,4 +1,3 @@
-import os
 import random
 from faker import Faker
 
@@ -50,9 +49,7 @@ def generate_log_line():
 
 def main(entries):
     logs = [generate_log_line() for _ in range(entries)]
-    log_dir = "src/logs"
-    os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, "docker.log")
+    log_path = "logs/docker.log"
     with open(log_path, "w") as file:
         for log in logs:
             file.write(log + "\n")

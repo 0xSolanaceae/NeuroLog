@@ -1,5 +1,4 @@
 import random
-import os
 from faker import Faker
 
 fake = Faker()
@@ -54,13 +53,12 @@ def generate_log_line():
     ns = random.choice(namespaces)
     pod_id = f"pod-{random.randint(1000, 9999)}"
     container_id = f"container-{random.randint(1000, 9999)}"
-    return f"{random_timestamp()} INFO {ns}/{pod_id}/{container_id} {message}"
+    hostname = fake.hostname()
+    return f"{random_timestamp()} {hostname} INFO {ns}/{pod_id}/{container_id} {message}"
 
 def main(entries):
     logs = [generate_log_line() for _ in range(entries)]
-    log_dir = "src/logs"
-    os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, "kubernetes.log")
+    log_path = "logs/kubernetes.log"
     with open(log_path, "w") as file:
         for log in logs:
             file.write(log + "\n")
