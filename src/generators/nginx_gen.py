@@ -1,13 +1,17 @@
 import random
 import urllib.parse
 import time
+import os
+from faker import Faker
+
+fake = Faker()
 
 normal_methods = ["GET", "POST", "PUT", "DELETE"]
 normal_paths = ["/index.html", "/about.html", "/services.html", "/contact.html", "/api/data", "/dashboard"]
 suspicious_messages = ["SQL Injection", "XSS Attempt", "Command Injection", "Path Traversal"]
 
 def random_ip():
-    return ".".join(str(random.randint(1, 254)) for _ in range(4))
+    return fake.ipv4()
 
 def generate_log_line():
     ip = random_ip()
@@ -30,20 +34,19 @@ def generate_log_line():
     
     request = f"{method} {full_path} {protocol}"
     referer = "-"
-    user_agent = random.choice([
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15",
-        "Mozilla/5.0 (Linux; Android 11; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Mobile Safari/537.36"
-    ])
+    user_agent = fake.user_agent()
     
     return f'{ip} - - [{timestamp}] "{request}" {status} {bytes_sent} "{referer}" "{user_agent}"'
 
 def main(entries):
     logs = [generate_log_line() for _ in range(entries)]
-    with open("logs/nginx.log", "w") as file:
+    log_dir = "src/logs"
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "nginx.log")
+    with open(log_path, "w") as file:
         for log in logs:
             file.write(log + "\n")
-    print(f"Generated {entries} lines of Nginx logs in 'logs/nginx.log'")
+    print(f"Generated {entries} lines of Nginx logs in '{log_path}'")
 
 if __name__ == "__main__":
-    main(1000)
+    main()

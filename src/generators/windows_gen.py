@@ -1,5 +1,8 @@
 import random
-import datetime
+import os
+from faker import Faker
+
+fake = Faker()
 
 SOURCES = ["Application", "System", "Security"]
 LEVELS = ["Information", "Warning", "Error"]
@@ -12,10 +15,7 @@ MESSAGES = [
 ]
 
 def random_windows_timestamp():
-    now = datetime.datetime.now()
-    delta = datetime.timedelta(seconds=random.randint(0, 7*24*3600))
-    ts = now - delta
-    return ts.strftime("%m/%d/%Y %I:%M:%S %p")
+    return fake.date_time_this_year().strftime("%m/%d/%Y %I:%M:%S %p")
 
 def generate_windows_log_line():
     timestamp = random_windows_timestamp()
@@ -27,10 +27,13 @@ def generate_windows_log_line():
 
 def main(entries):
     lines = [generate_windows_log_line() for _ in range(entries)]
-    with open("logs/windows.log", "w") as file:
+    log_dir = "src/logs"
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "windows.log")
+    with open(log_path, "w") as file:
         for log in lines:
             file.write(log + "\n")
-    print(f"Generated {entries} lines of Windows logs in 'logs/windows.log'")
+    print(f"Generated {entries} lines of Windows logs in '{log_path}'")
     return "\n".join(lines)
 
 if __name__ == "__main__":

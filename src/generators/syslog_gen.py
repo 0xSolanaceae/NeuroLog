@@ -1,4 +1,8 @@
 import random
+import os
+from faker import Faker
+
+fake = Faker()
 
 HOSTNAME = "myhostname"
 
@@ -31,13 +35,7 @@ tags_messages = {
 }
 
 def random_syslog_timestamp():
-    month = random.choice(["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
-    day = random.randint(1, 31)
-    hour = random.randint(0, 23)
-    minute = random.randint(0, 59)
-    second = random.randint(0, 59)
-    return f"{month} {day:2d} {hour:02d}:{minute:02d}:{second:02d}"
+    return fake.date_time_this_year().strftime("%b %d %H:%M:%S")
 
 def generate_syslog_line():
     timestamp = random_syslog_timestamp()
@@ -47,10 +45,13 @@ def generate_syslog_line():
 
 def main(entries):
     lines = [generate_syslog_line() for _ in range(entries)]
-    with open("logs/syslog.log", "w") as file:
+    log_dir = "src/logs"
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "syslog.log")
+    with open(log_path, "w") as file:
         for log in lines:
             file.write(log + "\n")
-    print(f"Generated {entries} lines of syslog logs in 'logs/syslog.log'")
+    print(f"Generated {entries} lines of syslog logs in '{log_path}'")
     return "\n".join(lines)
 
 if __name__ == "__main__":

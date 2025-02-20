@@ -1,5 +1,8 @@
 import random
-import datetime
+import os
+from faker import Faker
+
+fake = Faker()
 
 normal_messages = [
     "Pod started",
@@ -40,14 +43,7 @@ suspicious_messages = [
 namespaces = ["development", "production", "default", "kube-system"]
 
 def random_timestamp():
-    now = datetime.datetime.now()
-    delta = datetime.timedelta(
-        days=random.randint(0, 7),
-        hours=random.randint(0, 23),
-        minutes=random.randint(0, 59),
-        seconds=random.randint(0, 59)
-    )
-    return (now - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return fake.date_time_this_month().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def generate_log_line():
     if random.random() < 0.02: # 2% chance of generating a suspicious log
@@ -62,10 +58,13 @@ def generate_log_line():
 
 def main(entries):
     logs = [generate_log_line() for _ in range(entries)]
-    with open("logs/kubernetes.log", "w") as file:
+    log_dir = "src/logs"
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "kubernetes.log")
+    with open(log_path, "w") as file:
         for log in logs:
             file.write(log + "\n")
-    print(f"Generated {entries} lines of Kubernetes logs in 'logs/kubernetes.log'")
+    print(f"Generated {entries} lines of Kubernetes logs in '{log_path}'")
 
 if __name__ == "__main__":
     main()

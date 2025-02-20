@@ -1,17 +1,16 @@
 import random
 import datetime
+import os
+from faker import Faker
+
+fake = Faker()
 
 HTTP_METHODS = ["GET", "POST", "PUT", "DELETE"]
 URL_PATHS = ["/index.html", "/about.html", "/services.html", "/contact.html", "/api/data"]
 STATUS_CODES = [200, 201, 301, 302, 400, 403, 404, 500]
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-    "Mozilla/5.0 (Linux; Android 11; SM-G998B)"
-]
 
 def random_ip():
-    return ".".join(str(random.randint(0, 255)) for _ in range(4))
+    return fake.ipv4()
 
 def random_apache_timestamp():
     now = datetime.datetime.now()
@@ -22,7 +21,7 @@ def random_apache_timestamp():
 def generate_apache_log_line():
     ip = random_ip()
     ident = "-"  # usually not used
-    user = random.choice(["frank", "jane", "bob", "-"])
+    user = fake.user_name()
     timestamp = random_apache_timestamp()
     method = random.choice(HTTP_METHODS)
     path = random.choice(URL_PATHS)
@@ -30,14 +29,18 @@ def generate_apache_log_line():
     request = f"{method} {path} {protocol}"
     status = random.choice(STATUS_CODES)
     bytes_sent = random.randint(200, 5000)
-    return f'{ip} {ident} {user} [{timestamp}] "{request}" {status} {bytes_sent}'
+    user_agent = fake.user_agent()
+    return f'{ip} {ident} {user} [{timestamp}] "{request}" {status} {bytes_sent} "{user_agent}"'
 
 def main(entries):
     lines = [generate_apache_log_line() for _ in range(entries)]
-    with open("logs/apache.log", "w") as file:
+    log_dir = "src/logs"
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "apache.log")
+    with open(log_path, "w") as file:
         for log in lines:
             file.write(log + "\n")
-    print(f"Generated {entries} lines of Apache logs in 'logs/apache.log'")
+    print(f"Generated {entries} lines of Apache logs in '{log_path}'")
     return "\n".join(lines)
 
 if __name__ == "__main__":

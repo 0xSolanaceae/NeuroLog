@@ -1,6 +1,8 @@
-
+import os
 import random
-import datetime
+from faker import Faker
+
+fake = Faker()
 
 normal_messages = [
     "Container started",
@@ -33,12 +35,10 @@ suspicious_messages = [
 ]
 
 def random_timestamp():
-    now = datetime.datetime.now()
-    delta = datetime.timedelta(days=random.randint(0, 7), hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
-    return (now - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return fake.date_time_this_month().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def generate_log_line():
-    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = random_timestamp()
     if random.random() < 0.02: # 2% chance of generating a suspicious log
         message = random.choice(suspicious_messages)
         level = "WARNING"
@@ -50,10 +50,13 @@ def generate_log_line():
 
 def main(entries):
     logs = [generate_log_line() for _ in range(entries)]
-    with open("logs/docker.log", "w") as file:
+    log_dir = "src/logs"
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "docker.log")
+    with open(log_path, "w") as file:
         for log in logs:
             file.write(log + "\n")
-    print(f"Generated {entries} lines of Docker logs in 'logs/docker.log'")
+    print(f"Generated {entries} lines of Docker logs in '{log_path}'")
 
 if __name__ == "__main__":
     main()
