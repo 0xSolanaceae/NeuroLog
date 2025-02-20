@@ -3,7 +3,6 @@
 import argparse
 import logging
 import os
-import pandas as pd
 from yaspin import yaspin
 from analyzer import LogAnalyzer
 
@@ -14,11 +13,11 @@ def cli_main():
     )
     subparsers = parser.add_subparsers(dest='command', required=True)
 
-    analyze_parser = parsers(
+    analyze_parser = add_subcommand(
         subparsers,
         'analyze',
         'Run full log analysis',
-        "Output file for anomalies",
+        "Output file for anomalies"
     )
     analyze_parser.add_argument(
         "--format", "-f", 
@@ -27,21 +26,13 @@ def cli_main():
         help="Output format"
     )
 
-    # Subcommand: detect
-    detect_parser = subparsers.add_parser('detect', help='Detect log formats')
-    detect_parser.add_argument("log_file", help="Path to the log file")
-    
-    # subcommand: train-crf
     train_parser = subparsers.add_parser('train-crf', help='Train CRF model for log parsing')
     train_parser.add_argument("--output", "-o", default="crf_model.pkl", 
-                            help="Output path for trained model")
+                              help="Output path for trained model")
 
-    parsers(
-        subparsers, 'stats', 'Generate log statistics', "Output file for stats"
-    )
     args = parser.parse_args()
 
-    if args.command in ['analyze', 'detect', 'stats'] and not os.path.isfile(args.log_file):
+    if args.command == 'analyze' and not os.path.isfile(args.log_file):
         logging.error("File not found: %s", args.log_file)
         exit(1)
 
@@ -49,36 +40,11 @@ def cli_main():
 
     if args.command == 'analyze':
         analysis_output(analyzer, args)
-    elif args.command == 'detect':
-        confidences = analyzer.detect_log_types(args.log_file)
-        print("Log Format Probabilities:")
-        for t, p in sorted(confidences.items(), key=lambda x: x[1], reverse=True):
-            print(f"- {t:<12}: {p:.1%}")
-
-    elif args.command == 'stats':
-        stats_output(analyzer, args)
-    
     elif args.command == 'train-crf':
         from train_crf import train_and_save_model
         with yaspin(text="Training CRF model", color="yellow") as spinner:
             train_and_save_model(args.output)
             spinner.ok("✔")
-
-
-def stats_output(analyzer, args):
-    results = analyzer.analyze(args.log_file)
-    stats = results.get('stats', {})
-    print("\n=== STATISTICS ===")
-    print(f"Total Entries: {stats.get('total_entries', 0)}")
-    print(f"Error Rate: {stats.get('error_rate', 0):.1%}")
-    print(f"Common Hosts: {stats.get('common_hosts', {})}")
-    print("\nHTTP Status Distribution:")
-    print(stats.get('http_status_distribution', {}))
-    if args.output:
-        pd.Series(stats).to_json(args.output)
-        logging.info("Statistics saved to %s", args.output)
-        print(f"Statistics saved to {args.output}")
-
 
 def analysis_output(analyzer, args):
     with yaspin(text="Analyzing log file", color="cyan") as spinner:
@@ -103,12 +69,10 @@ def analysis_output(analyzer, args):
         logging.info("Results saved to %s", args.output)
         print(f"\nResults saved to {args.output}")
 
-
-def parsers(subparsers, arg1, help, arg3):
-    # Subcommand: analyze
-    result = subparsers.add_parser(arg1, help=help)
+def add_subcommand(subparsers, name, help_text, output_help):
+    result = subparsers.add_parser(name, help=help_text)
     result.add_argument("log_file", help="Path to the log file")
-    result.add_argument("--output", "-o", help=arg3)
+    result.add_argument("--output", "-o", help=output_help)
     return result
 
 if __name__ == '__main__':
