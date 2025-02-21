@@ -1,14 +1,11 @@
-# train_crf.py
 import os
 import pickle
 from analyzer import LogAnalyzer
 from sklearn_crfsuite import CRF
 
 def train_and_save_model(model_path='models/crf_model.pkl'):
-    # Initialize analyzer to access dataset and patterns
     analyzer = LogAnalyzer()
     
-    # Collect training data using analyzer's existing patterns
     X_train = []
     y_train = []
     
@@ -41,7 +38,6 @@ def train_and_save_model(model_path='models/crf_model.pkl'):
                     y_train.append(labels)
                     break
 
-    # Train and save model
     crf = CRF(
         algorithm='lbfgs',
         c1=0.1,
