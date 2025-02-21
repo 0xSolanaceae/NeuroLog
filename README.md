@@ -11,7 +11,7 @@ NeuroLog is an advanced log analysis tool combining machine learning (ML) and st
 | Parser Recall   | 96.8%    | 82.4%     | 85.1%   |
 | RAM Efficiency  | 1.1GB    | 3.8GB     | 2.9GB   |
 
-[Technical Paper](docs/log_analysis_paper.md) | [Validation Methodology](docs/benchmark_methodology.md)
+[Technical Paper](docs/log_analysis_paper.md)
 
 ---
 
